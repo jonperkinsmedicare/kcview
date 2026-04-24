@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <!-- Aircraft top-down silhouette pointing up (north) -->
+  <!-- deck.gl rotates this by the heading angle -->
+  
+  <!-- Fuselage -->
+  <ellipse cx="32" cy="32" rx="4" ry="18" fill="#00dcff" opacity="0.95"/>
+  
+  <!-- Main wings -->
+  <polygon points="32,24 8,40 14,40 32,30 50,40 56,40" fill="#00dcff" opacity="0.95"/>
+  
+  <!-- Tail wings -->
+  <polygon points="32,46 22,54 26,54 32,50 38,54 42,54" fill="#00dcff" opacity="0.9"/>
+  
+  <!-- Nose highlight -->
+  <ellipse cx="32" cy="15" rx="2.5" ry="4" fill="#ffffff" opacity="0.6"/>
+</svg>

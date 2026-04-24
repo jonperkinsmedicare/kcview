@@ -1,8 +1,4 @@
-// KCView — deck.gl Layer Factory
-// Each function returns a deck.gl layer instance configured for KC data.
-// Import and compose these in the main map component.
-
-import { IconLayer, ScatterplotLayer, TextLayer, LineLayer } from '@deck.gl/layers'
+import { IconLayer, ScatterplotLayer, TextLayer } from '@deck.gl/layers'
 import { HeatmapLayer } from '@deck.gl/aggregation-layers'
 import { TripsLayer } from '@deck.gl/geo-layers'
 import type { Aircraft, SatellitePosition, TrafficCamera, TransitVehicle, SpeedSensor } from '../types'
@@ -16,7 +12,6 @@ export function buildAircraftLayer(
   onHover: (info: { object?: Aircraft }) => void,
   onClick: (info: { object?: Aircraft }) => void,
 ) {
-  // Filter out ground vehicles; show airborne only
   const airborne = aircraft.filter(a => !a.onGround && a.altitude > 50)
 
   return [
@@ -29,8 +24,10 @@ export function buildAircraftLayer(
           timestamp: t,
         })),
       })),
-      getPath: (d) => d.waypoints.map((w: { coordinates: number[] }) => w.coordinates),
-      getTimestamps: (d) => d.waypoints.map((w: { timestamp: number }) => w.timestamp),
+      getPath: (d: { waypoints: Array<{ coordinates: number[] }> }) =>
+        d.waypoints.map(w => w.coordinates) as unknown as number[],
+      getTimestamps: (d: { waypoints: Array<{ timestamp: number }> }) =>
+        d.waypoints.map(w => w.timestamp),
       getColor: [0, 220, 255],
       widthMinPixels: 2,
       trailLength: 120,
@@ -38,7 +35,6 @@ export function buildAircraftLayer(
       fadeTrail: true,
       opacity: 0.6,
     }),
-    // Main icon layer
     new IconLayer<Aircraft>({
       id: 'aircraft-icons',
       data: airborne,
@@ -52,19 +48,16 @@ export function buildAircraftLayer(
       }),
       getSize: 28,
       getColor: (d) => {
-        // Color by altitude: low=cyan, mid=white, high=amber
         if (d.altitude < 1000) return [0, 255, 200, 220]
         if (d.altitude < 5000) return [255, 255, 255, 200]
         return [255, 200, 50, 200]
       },
-      getAngle: (d) => -d.heading, // deck.gl rotation is counter-clockwise
+      getAngle: (d) => -d.heading,
       pickable: true,
       onHover,
       onClick,
       billboard: true,
     }),
-
-    // Callsign labels
     new TextLayer<Aircraft>({
       id: 'aircraft-labels',
       data: airborne.filter(a => a.callsign),
@@ -86,20 +79,14 @@ export function buildSatelliteLayer(
   satellites: SatellitePosition[],
   onHover: (info: { object?: SatellitePosition }) => void,
 ) {
-  const EARTH_RADIUS_KM = 6371
-  const SCALE = 100 // meters per km (deck.gl units)
-
   return new ScatterplotLayer<SatellitePosition>({
     id: 'satellites',
     data: satellites,
-    getPosition: (d) => [d.longitude, d.latitude, d.altitude * SCALE],
+    getPosition: (d) => [d.longitude, d.latitude, d.altitude * 100],
     getRadius: 8000,
-    getFillColor: (d) => {
-      // Above-horizon satellites glow amber; below horizon are dim
-      return d.elevation > 0
-        ? [255, 160, 0, 220]
-        : [100, 100, 100, 80]
-    },
+    getFillColor: (d) => d.elevation > 0
+      ? [255, 160, 0, 220]
+      : [100, 100, 100, 80],
     pickable: true,
     onHover,
     stroked: true,
@@ -153,11 +140,11 @@ export function buildTransitLayer(vehicles: TransitVehicle[]) {
 // SPEED SENSOR CHOROPLETH (MoDOT)
 // ---------------------------------------------------------------
 export function buildSpeedSensorLayer(sensors: SpeedSensor[]) {
-  const colorMap = {
-    'free':          [0, 200, 100, 180],
-    'moderate':      [255, 200, 0, 200],
-    'heavy':         [255, 100, 0, 220],
-    'stop-and-go':   [220, 0, 0, 240],
+  const colorMap: Record<string, [number, number, number, number]> = {
+    'free':        [0, 200, 100, 180],
+    'moderate':    [255, 200, 0, 200],
+    'heavy':       [255, 100, 0, 220],
+    'stop-and-go': [220, 0, 0, 240],
   }
 
   return new ScatterplotLayer<SpeedSensor>({
@@ -165,7 +152,7 @@ export function buildSpeedSensorLayer(sensors: SpeedSensor[]) {
     data: sensors,
     getPosition: (d) => [d.longitude, d.latitude],
     getRadius: (d) => 300 + d.volume * 0.1,
-    getFillColor: (d) => colorMap[d.congestionLevel],
+    getFillColor: (d) => colorMap[d.congestionLevel] as [number, number, number, number],
     pickable: true,
     stroked: false,
     opacity: 0.7,
@@ -213,14 +200,7 @@ export const KC_FIFA_VENUES: FifaVenue[] = [
     type: 'shuttle-hub',
     longitude: -94.7131,
     latitude: 39.2976,
-    notes: 'Primary international arrival point. Charter surge expected.',
-  },
-  {
-    name: 'KCI Airport Shuttle Terminal',
-    type: 'shuttle-hub',
-    longitude: -94.7131,
-    latitude: 39.2976,
-    notes: 'Official FIFA ground transport hub.',
+    notes: 'Primary international arrival point.',
   },
   {
     name: 'Truman Medical Center',
@@ -255,7 +235,7 @@ export function buildFifaVenueLayer(onClick: (info: { object?: FifaVenue }) => v
       getRadius: (d) => d.type === 'stadium' ? 800 : 300,
       getFillColor: (d) => {
         const c = VENUE_COLORS[d.type]
-        return [c[0], c[1], c[2], 40] // very transparent glow ring
+        return [c[0], c[1], c[2], 40] as [number, number, number, number]
       },
       stroked: false,
       pickable: false,
@@ -269,7 +249,7 @@ export function buildFifaVenueLayer(onClick: (info: { object?: FifaVenue }) => v
       pickable: true,
       onClick,
       stroked: true,
-      getLineColor: [255, 255, 255, 100],
+      getLineColor: [255, 255, 255, 100] as [number, number, number, number],
       getLineWidth: 2,
     }),
     new TextLayer<FifaVenue>({
@@ -288,7 +268,7 @@ export function buildFifaVenueLayer(onClick: (info: { object?: FifaVenue }) => v
 }
 
 // ---------------------------------------------------------------
-// CROWD DENSITY HEATMAP (Meta HRSL or event-day estimate)
+// CROWD DENSITY HEATMAP
 // ---------------------------------------------------------------
 export function buildCrowdHeatmapLayer(
   points: Array<{ longitude: number; latitude: number; weight: number }>
@@ -296,8 +276,8 @@ export function buildCrowdHeatmapLayer(
   return new HeatmapLayer({
     id: 'crowd-heatmap',
     data: points,
-    getPosition: (d) => [d.longitude, d.latitude],
-    getWeight: (d) => d.weight,
+    getPosition: (d: { longitude: number; latitude: number }) => [d.longitude, d.latitude],
+    getWeight: (d: { weight: number }) => d.weight,
     radiusPixels: 60,
     intensity: 1,
     threshold: 0.03,
@@ -308,6 +288,6 @@ export function buildCrowdHeatmapLayer(
       [255, 150, 0, 200],
       [255, 50, 0, 220],
       [255, 0, 0, 240],
-    ],
+    ] as [number, number, number, number][],
   })
 }

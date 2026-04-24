@@ -44,11 +44,11 @@ export default function MapView({ useGoogleTiles = false }: MapViewProps) {
 
   // Build all active deck.gl layers
   const deckLayers = [
-    ...(layers.fifaVenues ? buildFifaVenueLayer({
-      onClick: ({ object }: { object?: FifaVenue }) => {
-        if (object) setSelectedEntity(null) // TODO: create FifaVenue entity type
+    ...(layers.fifaVenues ? buildFifaVenueLayer(
+      ({ object }: { object?: FifaVenue }) => {
+        if (object) setSelectedEntity(null)
       }
-    }) : []),
+    ) : []),
     ...(layers.aircraft ? buildAircraftLayer(
       aircraft,
       useStore.getState().aircraftHistory,

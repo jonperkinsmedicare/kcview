@@ -207,5 +207,5 @@ function parseKCScoutCamerasXML(xml: string): object[] {
 }
 
 interface Env {
-  KV?: KVNamespace
+  KV?: any
 }
