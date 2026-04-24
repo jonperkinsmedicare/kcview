@@ -4,15 +4,15 @@
 
 // --- Aircraft (OpenSky Network) ---
 export interface Aircraft {
-  icao24: string        // Unique transponder address
+  icao24: string
   callsign: string
   longitude: number
   latitude: number
-  altitude: number      // Baro altitude in meters
-  velocity: number      // m/s
-  heading: number       // Track angle in degrees
+  altitude: number
+  velocity: number
+  heading: number
   onGround: boolean
-  lastContact: number   // Unix timestamp
+  lastContact: number
 }
 
 // --- Satellite (CelesTrak TLE + satellite.js computed) ---
@@ -21,10 +21,10 @@ export interface SatellitePosition {
   name: string
   longitude: number
   latitude: number
-  altitude: number      // km above surface
-  velocity: number      // km/s
-  elevation: number     // degrees above horizon from KC
-  tle: [string, string] // TLE line 1 and line 2
+  altitude: number
+  velocity: number
+  elevation: number
+  tle: [string, string]
 }
 
 // --- Traffic Camera (KC Scout / MoDOT / KDOT) ---
@@ -33,7 +33,7 @@ export interface TrafficCamera {
   name: string
   longitude: number
   latitude: number
-  snapshotUrl: string   // JPEG snapshot URL (refreshes every ~30s)
+  snapshotUrl: string
   agency: 'kcscout' | 'modot' | 'kdot'
   direction?: string
   highway?: string
@@ -47,7 +47,7 @@ export interface TransitVehicle {
   longitude: number
   latitude: number
   bearing: number
-  speed: number         // m/s
+  speed: number
   timestamp: number
 }
 
@@ -58,37 +58,37 @@ export interface SpeedSensor {
   latitude: number
   highway: string
   direction: string
-  speed: number         // mph
-  volume: number        // vehicles/hour
-  occupancy: number     // % 0-100
+  speed: number
+  volume: number
+  occupancy: number
   congestionLevel: 'free' | 'moderate' | 'heavy' | 'stop-and-go'
 }
 
 // --- FIFA Match ---
 export interface FifaMatch {
   id: string
-  date: string          // ISO 8601
+  date: string
   homeTeam: string
   awayTeam: string
-  homeFlag: string      // emoji
+  homeFlag: string
   awayFlag: string
   stage: 'group' | 'round-of-16' | 'quarterfinal' | 'semifinal' | 'final'
-  kickoffLocal: string  // e.g. "7:00 PM CT"
+  kickoffLocal: string
   expectedAttendance: number
 }
 
 // --- Weather (NOAA NWS) ---
 export interface WeatherCondition {
-  temperature: number   // F
-  windSpeed: number     // mph
-  windDirection: number // degrees
-  precipProbability: number // 0-1
+  temperature: number
+  windSpeed: number
+  windDirection: number
+  precipProbability: number
   shortForecast: string
   severeAlertActive: boolean
   alertHeadline?: string
 }
 
-// --- View Mode (shader/filter state) ---
+// --- View Mode ---
 export type ViewMode = 'normal' | 'night-vision' | 'thermal' | 'crt' | 'match-day'
 
 // --- Active Layer toggles ---
@@ -108,7 +108,6 @@ export interface LayerVisibility {
 
 // --- App Store shape (Zustand) ---
 export interface KCViewState {
-  // Viewport
   viewState: {
     longitude: number
     latitude: number
@@ -116,20 +115,18 @@ export interface KCViewState {
     pitch: number
     bearing: number
   }
-  // Live data
   aircraft: Aircraft[]
+  aircraftHistory: Record<string, Array<[number, number, number, number]>>
   satellites: SatellitePosition[]
   transitVehicles: TransitVehicle[]
   cameras: TrafficCamera[]
   speedSensors: SpeedSensor[]
   weather: WeatherCondition | null
-  // UI state
   viewMode: ViewMode
   layers: LayerVisibility
   selectedEntity: Aircraft | SatellitePosition | TrafficCamera | null
   sidebarOpen: boolean
   activeMatch: FifaMatch | null
-  // Actions
   setViewMode: (mode: ViewMode) => void
   toggleLayer: (layer: keyof LayerVisibility) => void
   setSelectedEntity: (entity: KCViewState['selectedEntity']) => void
