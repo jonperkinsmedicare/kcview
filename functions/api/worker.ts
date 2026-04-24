@@ -133,7 +133,7 @@ export default {
         }
 
         // NWS requires User-Agent
-        const pointRes = await fetch('https://api.weather.gov/points/38.8195,-94.4839', {
+        const pointRes = await fetch('https://api.weather.gov/points/39.0489,-94.4846', {
           headers: { 'User-Agent': 'KCView/1.0 (kcview@example.com)' }
         })
         const point = await pointRes.json()
@@ -159,7 +159,86 @@ export default {
           headers: { ...cors, 'Content-Type': 'application/json' }
         })
       }
+// --------------------------------------------------------
+      // GET /opensky-token
+      // Returns a fresh OpenSky Bearer token using server-side credentials
+      // --------------------------------------------------------
+      if (path === '/opensky-token') {
+        const clientId = env.OPENSKY_CLIENT_ID
+        const clientSecret = env.OPENSKY_CLIENT_SECRET
 
+        const body = new URLSearchParams({
+          grant_type: 'client_credentials',
+          client_id: clientId,
+          client_secret: clientSecret,
+        })
+
+        const tokenRes = await fetch(
+          'https://auth.opensky-network.org/auth/realms/opensky-network/protocol/openid-connect/token',
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body,
+          }
+        )
+
+        if (!tokenRes.ok) {
+          return new Response('Token fetch failed', { status: 502, headers: cors })
+        }
+
+        const tokenData = await tokenRes.json()
+        return new Response(JSON.stringify(tokenData), {
+          headers: { ...cors, 'Content-Type': 'application/json' }
+        })
+      }
+      // --------------------------------------------------------
+      // GET /api/states/all
+      // Proxies OpenSky states with server-side Bearer token
+      // --------------------------------------------------------
+      if (path === '/api/states/all') {
+        const clientId = env.OPENSKY_CLIENT_ID
+        const clientSecret = env.OPENSKY_CLIENT_SECRET
+
+        // Get token
+        const tokenBody = new URLSearchParams({
+          grant_type: 'client_credentials',
+          client_id: clientId,
+          client_secret: clientSecret,
+        })
+
+        const tokenRes = await fetch(
+          'https://auth.opensky-network.org/auth/realms/opensky-network/protocol/openid-connect/token',
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: tokenBody,
+          }
+        )
+
+        if (!tokenRes.ok) {
+          return new Response('Token fetch failed', { status: 502, headers: cors })
+        }
+
+        const { access_token } = await tokenRes.json() as { access_token: string }
+
+        // Fetch states
+        const statesUrl = `https://opensky-network.org/api/states/all?${url.searchParams.toString()}`
+        const statesRes = await fetch(statesUrl, {
+          headers: {
+            Authorization: `Bearer ${access_token}`,
+            Accept: 'application/json',
+          }
+        })
+
+        const statesData = await statesRes.text()
+        return new Response(statesData, {
+          headers: {
+            ...cors,
+            'Content-Type': 'application/json',
+            'Cache-Control': 'public, max-age=30',
+          }
+        })
+      }
       return new Response('Not found', { status: 404, headers: cors })
 
     } catch (err) {
@@ -208,4 +287,6 @@ function parseKCScoutCamerasXML(xml: string): object[] {
 
 interface Env {
   KV?: any
+  OPENSKY_CLIENT_ID: string
+  OPENSKY_CLIENT_SECRET: string
 }

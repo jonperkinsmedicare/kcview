@@ -1,0 +1,7 @@
+name = "kcview-api"
+main = "functions/api/worker.ts"
+compatibility_date = "2024-01-01"
+
+[[kv_namespaces]]
+binding = "KV"
+id = "6b8d9f40c70c4425965ef6e82ac151c8"

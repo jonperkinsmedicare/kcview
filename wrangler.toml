@@ -7,7 +7,7 @@ pages_build_output_dir = "dist"
 # Then paste the id below
 [[kv_namespaces]]
 binding = "KV"
-id = "YOUR_KV_NAMESPACE_ID"   # replace after: wrangler kv:namespace create KCVIEW_CACHE
+id = "6b8d9f40c70c4425965ef6e82ac151c8"
 
 [vars]
 # No secrets needed for Phase 1 — all data sources are public

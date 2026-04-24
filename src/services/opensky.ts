@@ -7,7 +7,8 @@ const KC_BBOX = {
   lomax: -94.1,
 }
 
-// Token cache — valid 30 minutes, re-fetched automatically
+const WORKER_URL = 'https://kcview-api.jonperkinsmedicare.workers.dev'
+
 let cachedToken: { token: string; expiresAt: number } | null = null
 
 async function getToken(): Promise<string> {
@@ -17,27 +18,29 @@ async function getToken(): Promise<string> {
 
   console.log('[OpenSky] Fetching new OAuth2 token...')
 
+  const tokenUrl = import.meta.env.DEV
+    ? '/opensky-auth/auth/realms/opensky-network/protocol/openid-connect/token'
+    : `${WORKER_URL}/opensky-token`
+
   const body = new URLSearchParams({
     grant_type: 'client_credentials',
     client_id: import.meta.env.VITE_OPENSKY_CLIENT_ID ?? '',
     client_secret: import.meta.env.VITE_OPENSKY_CLIENT_SECRET ?? '',
   })
 
-  const res = await fetch(
-    '/opensky-auth/auth/realms/opensky-network/protocol/openid-connect/token',
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body,
-    }
-  )
+  const res = await fetch(tokenUrl, {
+    method: import.meta.env.DEV ? 'POST' : 'GET',
+    headers: import.meta.env.DEV
+      ? { 'Content-Type': 'application/x-www-form-urlencoded' }
+      : {},
+    body: import.meta.env.DEV ? body : undefined,
+  })
 
   if (!res.ok) throw new Error(`Token fetch failed: ${res.status}`)
 
   const data = await res.json()
   cachedToken = {
     token: data.access_token,
-    // Refresh 30 seconds before expiry
     expiresAt: Date.now() + (data.expires_in - 30) * 1000,
   }
 
@@ -46,8 +49,6 @@ async function getToken(): Promise<string> {
 }
 
 export async function fetchAircraft(): Promise<Aircraft[]> {
-  const token = await getToken()
-
   const params = new URLSearchParams({
     lamin: KC_BBOX.lamin.toString(),
     lamax: KC_BBOX.lamax.toString(),
@@ -55,12 +56,21 @@ export async function fetchAircraft(): Promise<Aircraft[]> {
     lomax: KC_BBOX.lomax.toString(),
   })
 
-  const res = await fetch(`/proxy/opensky/api/states/all?${params}`, {
-    headers: {
-      Accept: 'application/json',
-      Authorization: `Bearer ${token}`,
-    },
-  })
+  let res: Response
+
+  if (import.meta.env.DEV) {
+    const token = await getToken()
+    res = await fetch(`/proxy/opensky/api/states/all?${params}`, {
+      headers: {
+        Accept: 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+    })
+  } else {
+    res = await fetch(`${WORKER_URL}/api/states/all?${params}`, {
+      headers: { Accept: 'application/json' },
+    })
+  }
 
   if (res.status === 429) {
     const retry = res.headers.get('X-Rate-Limit-Retry-After-Seconds') ?? '60'
