@@ -1,0 +1,17 @@
+name = "kcview"
+compatibility_date = "2024-01-01"
+pages_build_output_dir = "dist"
+
+# KV namespace for caching TLE, camera catalog, weather
+# Create with: wrangler kv:namespace create "KCVIEW_CACHE"
+# Then paste the id below
+[[kv_namespaces]]
+binding = "KV"
+id = "YOUR_KV_NAMESPACE_ID"   # replace after: wrangler kv:namespace create KCVIEW_CACHE
+
+[vars]
+# No secrets needed for Phase 1 — all data sources are public
+# For Google 3D Tiles (Phase 2), add via: wrangler secret put GOOGLE_MAPS_API_KEY
+
+# Dev: wrangler pages dev dist --kv KV
+# Deploy: wrangler pages deploy dist
