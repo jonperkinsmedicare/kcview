@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from 'react'
+import { useEffect, useRef, useCallback, useState } from 'react'
 import DeckGL from '@deck.gl/react'
 import { Map } from 'react-map-gl/maplibre'
 import type { MapViewState } from '@deck.gl/core'
@@ -16,6 +16,7 @@ import {
 import type { Aircraft, SatellitePosition, TrafficCamera } from '../types'
 import { getCanvasStyle } from '../utils/viewModes'
 import { buildTrafficFlowLayer } from '../layers/traffic'
+
 
 // Free MapLibre-compatible tile style — no API key
 // Uses OpenFreeMap (https://openfreemap.org) — zero cost, no limits
@@ -43,6 +44,18 @@ export default function MapView({ useGoogleTiles = false }: MapViewProps) {
     viewMode,
     setSelectedEntity,
   } = useStore()
+
+  const [animTime, setAnimTime] = useState(0)
+
+  useEffect(() => {
+    let frame: number
+    const animate = () => {
+      setAnimTime((Date.now() / 1000) % 100)
+      frame = requestAnimationFrame(animate)
+    }
+    frame = requestAnimationFrame(animate)
+    return () => cancelAnimationFrame(frame)
+  }, [])
 
   // Build all active deck.gl layers
   const deckLayers = [
@@ -73,7 +86,7 @@ export default function MapView({ useGoogleTiles = false }: MapViewProps) {
     )] : []),
     ...(layers.transitVehicles ? [buildTransitLayer(transitVehicles)] : []),
     ...(layers.speedSensors ? [buildSpeedSensorLayer(speedSensors)] : []),
-    ...(layers.trafficFlow && trafficSegments.length > 0 ? buildTrafficFlowLayer(trafficSegments, Date.now() / 1000) : []),
+    ...(layers.trafficFlow && trafficSegments.length > 0 ? buildTrafficFlowLayer(trafficSegments, animTime) : []),
   ]
 
   const canvasStyle = getCanvasStyle(viewMode)

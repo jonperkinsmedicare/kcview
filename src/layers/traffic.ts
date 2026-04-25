@@ -3,6 +3,10 @@ import { TripsLayer } from '@deck.gl/geo-layers'
 import type { TrafficSegment } from '../types'
 import { jamFactorToColor } from '../services/traffic'
 
+const LOOP_LENGTH = 100   // animation cycles 0→100
+const TRAIL_LENGTH = 15   // trail is 15% of loop length
+
+// Glow road base layer
 export function buildTrafficRoadLayer(segments: TrafficSegment[]) {
   return [
     new PathLayer<TrafficSegment>({
@@ -11,10 +15,10 @@ export function buildTrafficRoadLayer(segments: TrafficSegment[]) {
       getPath: (d) => d.points,
       getColor: (d) => {
         const c = jamFactorToColor(d.jamFactor)
-        return [c[0], c[1], c[2], 25] as [number, number, number, number]
+        return [c[0], c[1], c[2], 30] as [number, number, number, number]
       },
-      getWidth: 12,
-      widthMinPixels: 4,
+      getWidth: 14,
+      widthMinPixels: 3,
       widthMaxPixels: 20,
       pickable: false,
       opacity: 0.6,
@@ -25,83 +29,73 @@ export function buildTrafficRoadLayer(segments: TrafficSegment[]) {
       getPath: (d) => d.points,
       getColor: (d) => {
         const c = jamFactorToColor(d.jamFactor)
-        return [c[0], c[1], c[2], 160] as [number, number, number, number]
+        return [c[0], c[1], c[2], 180] as [number, number, number, number]
       },
       getWidth: 3,
       widthMinPixels: 1,
-      widthMaxPixels: 6,
+      widthMaxPixels: 5,
       pickable: false,
-      opacity: 0.8,
+      opacity: 0.9,
     }),
   ]
-}
-
-function generateTripWaypoints(
-  segment: TrafficSegment,
-  currentTime: number,
-  trailLength: number
-): Array<{ coordinates: [number, number]; timestamp: number }> {
-  const points = segment.points
-  if (points.length < 2) return []
-
-  let totalLength = 0
-  const distances: number[] = [0]
-  for (let i = 1; i < points.length; i++) {
-    const dx = points[i][0] - points[i - 1][0]
-    const dy = points[i][1] - points[i - 1][1]
-    const dist = Math.sqrt(dx * dx + dy * dy)
-    totalLength += dist
-    distances.push(totalLength)
-  }
-
-  if (totalLength === 0) return []
-
-  const speedRatio = Math.max(0.1, segment.currentSpeed / Math.max(segment.freeFlowSpeed, 1))
-
-  return points.map((point, i) => ({
-    coordinates: point as [number, number],
-    timestamp: currentTime + (distances[i] / totalLength) * trailLength * (1 / speedRatio),
-  }))
 }
 
 export function buildTrafficParticleLayer(
   segments: TrafficSegment[],
   currentTime: number,
 ) {
-  const TRAIL_LENGTH = 0.08
-  const LOOP_LENGTH = 1.0
+  // currentTime should be 0-100 (use animTime % LOOP_LENGTH in MapView)
+  const time = currentTime % LOOP_LENGTH
 
   const trips: Array<{
     id: string
-    waypoints: Array<{ coordinates: [number, number]; timestamp: number }>
+    path: Array<[number, number]>
+    timestamps: number[]
     color: [number, number, number, number]
-    jamFactor: number
   }> = []
 
   for (const segment of segments) {
-    if (segment.jamFactor > 9) continue
+    if (segment.jamFactor > 9.5) continue
+    if (segment.points.length < 2) continue
+
     const color = jamFactorToColor(segment.jamFactor)
+
+    // Speed ratio affects how spread out the timestamps are
+    // Fast road = particles move quickly through their window
+    const speedRatio = Math.max(0.2, segment.currentSpeed / Math.max(segment.freeFlowSpeed, 1))
+
+    // Each trip covers 1/3 of the loop, 3 copies fill the full loop
+    const segmentDuration = (LOOP_LENGTH / 3) / speedRatio
+
     for (let offset = 0; offset < 3; offset++) {
-      const offsetTime = (currentTime + (offset * LOOP_LENGTH) / 3) % LOOP_LENGTH
-      const waypoints = generateTripWaypoints(segment, offsetTime, TRAIL_LENGTH)
-      if (waypoints.length >= 2) {
-        trips.push({ id: `${segment.id}-${offset}`, waypoints, color, jamFactor: segment.jamFactor })
-      }
+      const startT = (offset * LOOP_LENGTH) / 3
+
+      // Build timestamps: start at startT, end at startT + segmentDuration
+      const timestamps = segment.points.map((_, i) => {
+        return startT + (i / (segment.points.length - 1)) * segmentDuration
+      })
+
+      trips.push({
+        id: `${segment.id}-${offset}`,
+        path: segment.points,
+        timestamps,
+        color,
+      })
     }
   }
 
   return new TripsLayer({
     id: 'traffic-particles',
     data: trips,
-    getPath: (d: typeof trips[0]) => d.waypoints.map(w => w.coordinates),
-    getTimestamps: (d: typeof trips[0]) => d.waypoints.map(w => w.timestamp),
-    getColor: (d: typeof trips[0]) => d.color,
-    currentTime: currentTime % LOOP_LENGTH,
+    getPath: (d) => d.path,
+    getTimestamps: (d) => d.timestamps,
+    getColor: (d) => d.color,
+    currentTime: time,
     trailLength: TRAIL_LENGTH,
-    widthMinPixels: 2,
-    widthMaxPixels: 4,
+    widthMinPixels: 3,
+    widthMaxPixels: 8,
     fadeTrail: true,
-    opacity: 0.85,
+    opacity: 0.9,
   })
 }
 
