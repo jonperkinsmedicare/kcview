@@ -8,6 +8,9 @@ import { fetchCameras } from './services/cameras'
 import { fetchWeather } from './services/weather-fifa'
 import { VIEW_MODE_CSS } from './utils/viewModes'
 import type { TrafficCamera } from './types'
+import { startTrafficPolling } from './services/traffic'
+import LensOverlay from './components/LensOverlay'
+import type { TrafficSegment } from './types'
 
 // Inject view mode CSS overlay effects
 const styleEl = document.createElement('style')
@@ -47,6 +50,14 @@ export default function App() {
     return () => clearInterval(interval)
   }, [])
 
+  // Poll HERE traffic every 2 minutes
+  useEffect(() => {
+    const stop = startTrafficPolling((segments: TrafficSegment[]) => {
+      useStore.setState({ trafficSegments: segments })
+    })
+    return stop
+  }, [])
+
   // Satellite tracking (loaded on demand when layer toggled on)
   useEffect(() => {
     if (!layers.satellites) return
@@ -63,8 +74,10 @@ export default function App() {
       : null
 
   return (
-    <div style={{ width: '100vw', height: '100vh', overflow: 'hidden', background: '#000810' }}>
-      <MapView />
+    <div style={{ width: '100vw', height: '100vh', overflow: 'hidden', background: '#0a0f08' }}>
+      <LensOverlay>
+        <MapView />
+      </LensOverlay>
       <ControlPanel />
       {selectedCamera && (
         <CameraPopup

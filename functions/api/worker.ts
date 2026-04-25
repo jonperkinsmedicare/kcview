@@ -183,7 +183,8 @@ export default {
         )
 
         if (!tokenRes.ok) {
-          return new Response('Token fetch failed', { status: 502, headers: cors })
+          const errText = await tokenRes.text()
+          return new Response(`Token fetch failed: ${tokenRes.status} - ${errText}`, { status: 502, headers: cors })
         }
 
         const tokenData = await tokenRes.json()

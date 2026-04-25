@@ -15,6 +15,7 @@ import {
 } from '../layers'
 import type { Aircraft, SatellitePosition, TrafficCamera } from '../types'
 import { getCanvasStyle } from '../utils/viewModes'
+import { buildTrafficFlowLayer } from '../layers/traffic'
 
 // Free MapLibre-compatible tile style — no API key
 // Uses OpenFreeMap (https://openfreemap.org) — zero cost, no limits
@@ -35,6 +36,7 @@ export default function MapView({ useGoogleTiles = false }: MapViewProps) {
     aircraft,
     satellites,
     transitVehicles,
+    trafficSegments,
     cameras,
     speedSensors,
     layers,
@@ -71,6 +73,7 @@ export default function MapView({ useGoogleTiles = false }: MapViewProps) {
     )] : []),
     ...(layers.transitVehicles ? [buildTransitLayer(transitVehicles)] : []),
     ...(layers.speedSensors ? [buildSpeedSensorLayer(speedSensors)] : []),
+    ...(layers.trafficFlow && trafficSegments.length > 0 ? buildTrafficFlowLayer(trafficSegments, Date.now() / 1000) : []),
   ]
 
   const canvasStyle = getCanvasStyle(viewMode)

@@ -97,6 +97,7 @@ export interface LayerVisibility {
   satellites: boolean
   transitVehicles: boolean
   trafficCameras: boolean
+  trafficFlow: boolean
   speedSensors: boolean
   fifaVenues: boolean
   fifaFanZones: boolean
@@ -105,7 +106,15 @@ export interface LayerVisibility {
   weather: boolean
   osmBuildings: boolean
 }
-
+export interface TrafficSegment {
+  id: string
+  points: Array<[number, number]>
+  currentSpeed: number
+  freeFlowSpeed: number
+  jamFactor: number
+  confidence: number
+  roadName?: string
+}
 // --- App Store shape (Zustand) ---
 export interface KCViewState {
   viewState: {
@@ -121,6 +130,7 @@ export interface KCViewState {
   transitVehicles: TransitVehicle[]
   cameras: TrafficCamera[]
   speedSensors: SpeedSensor[]
+  trafficSegments: TrafficSegment[]
   weather: WeatherCondition | null
   viewMode: ViewMode
   layers: LayerVisibility
@@ -135,4 +145,5 @@ export interface KCViewState {
   setSatellites: (data: SatellitePosition[]) => void
   setTransitVehicles: (data: TransitVehicle[]) => void
   setWeather: (data: WeatherCondition) => void
+  setTrafficSegments: (data: TrafficSegment[]) => void
 }

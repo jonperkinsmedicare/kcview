@@ -27,6 +27,7 @@ export const useStore = create<KCViewState>((set) => ({
     satellites: false,
     transitVehicles: true,
     trafficCameras: true,
+    trafficFlow: true,
     speedSensors: true,
     fifaVenues: true,
     fifaFanZones: true,
@@ -66,4 +67,6 @@ export const useStore = create<KCViewState>((set) => ({
   setSatellites: (satellites: SatellitePosition[]) => set({ satellites }),
   setTransitVehicles: (transitVehicles: TransitVehicle[]) => set({ transitVehicles }),
   setWeather: (weather: WeatherCondition) => set({ weather }),
+  trafficSegments: [],
+  setTrafficSegments: (trafficSegments) => set({ trafficSegments }),
 }))

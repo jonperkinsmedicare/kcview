@@ -14,6 +14,7 @@ const LAYER_CONFIG: Array<{
   { key: 'transitVehicles',label: 'KC buses',           icon: '🚌', color: '#ff6464' },
   { key: 'trafficCameras', label: 'Traffic cameras',    icon: '📷', color: '#00dcff' },
   { key: 'speedSensors',   label: 'Highway sensors',    icon: '🛣', color: '#44ff44' },
+  { key: 'trafficFlow', label: 'Traffic flow', icon: '🚗', color: '#00ff88' },
   { key: 'fifaVenues',     label: 'FIFA venues',        icon: '⚽', color: '#ffcc00' },
   { key: 'fifaFanZones',   label: 'Fan zones',          icon: '🎉', color: '#00aaff' },
   { key: 'crowdDensity',   label: 'Crowd density',      icon: '👥', color: '#ff8800' },
