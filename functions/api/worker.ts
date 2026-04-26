@@ -240,6 +240,45 @@ export default {
           }
         })
       }
+      // --------------------------------------------------------
+      // POST /api/aircraft/push
+      // Receives aircraft data from Pi ADS-B feeder and stores in KV
+      // --------------------------------------------------------
+      if (path === '/api/aircraft/push' && request.method === 'POST') {
+        const secret = request.headers.get('X-KCView-Secret')
+        if (secret !== 'kcview2026') {
+          return new Response('Unauthorized', { status: 401, headers: cors })
+        }
+
+        const body = await request.json() as { aircraft: unknown[]; timestamp: number }
+        await env.KV?.put('aircraft:live', JSON.stringify(body), { expirationTtl: 60 })
+
+        return new Response(JSON.stringify({ ok: true, count: body.aircraft.length }), {
+          headers: { ...cors, 'Content-Type': 'application/json' }
+        })
+      }
+
+      // --------------------------------------------------------
+      // GET /api/aircraft/live
+      // Returns latest aircraft data from Pi feeder
+      // --------------------------------------------------------
+      if (path === '/api/aircraft/live') {
+        const cached = await env.KV?.get('aircraft:live', 'json') as { aircraft: unknown[]; timestamp: number } | null
+        if (!cached) {
+          return new Response(JSON.stringify({ aircraft: [], source: 'none' }), {
+            headers: { ...cors, 'Content-Type': 'application/json' }
+          })
+        }
+
+        const ageSeconds = (Date.now() - cached.timestamp) / 1000
+        return new Response(JSON.stringify({
+          aircraft: cached.aircraft,
+          source: 'sdr',
+          ageSeconds: Math.round(ageSeconds)
+        }), {
+          headers: { ...cors, 'Content-Type': 'application/json' }
+        })
+      }
       return new Response('Not found', { status: 404, headers: cors })
 
     } catch (err) {
