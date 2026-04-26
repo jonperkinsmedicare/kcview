@@ -75,9 +75,7 @@ export default function App() {
 
   return (
     <div style={{ width: '100vw', height: '100vh', overflow: 'hidden', background: '#0a0f08' }}>
-      <LensOverlay>
-        <MapView />
-      </LensOverlay>
+      <MapView useGoogleTiles={!!import.meta.env.VITE_GOOGLE_MAPS_API_KEY} />
       <ControlPanel />
       {selectedCamera && (
         <CameraPopup

@@ -16,6 +16,7 @@ import {
 import type { Aircraft, SatellitePosition, TrafficCamera } from '../types'
 import { getCanvasStyle } from '../utils/viewModes'
 import { buildTrafficFlowLayer } from '../layers/traffic'
+import CesiumView from './CesiumView'
 
 
 // Free MapLibre-compatible tile style — no API key
@@ -92,18 +93,9 @@ export default function MapView({ useGoogleTiles = false }: MapViewProps) {
   const canvasStyle = getCanvasStyle(viewMode)
 
   if (useGoogleTiles) {
-    // Phase 2: Cesium + Google 3D Tiles integration
-    // See /docs/google-3d-tiles-upgrade.md
     return (
-      <div style={{ width: '100%', height: '100%', ...canvasStyle }}>
-        <DeckGL
-          viewState={viewState as MapViewState}
-          controller={true}
-          layers={deckLayers}
-        >
-          {/* Cesium viewer injected here in Phase 2 */}
-          <div style={{ width: '100%', height: '100%', background: '#0a0a0f' }} />
-        </DeckGL>
+      <div style={{ width: '100%', height: '100%', ...canvasStyle, position: 'relative' }}>
+        <CesiumView />
       </div>
     )
   }
