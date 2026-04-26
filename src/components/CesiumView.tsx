@@ -1,4 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
+import { Deck } from '@deck.gl/core'
+import { useStore } from '../store'
+import { buildTrafficFlowLayer } from '../layers/traffic'
 
 interface POI {
   id: string
@@ -35,13 +38,25 @@ const CATEGORY_COLORS: Record<POI['category'], string> = {
 
 export default function CesiumView() {
   const containerRef = useRef<HTMLDivElement>(null)
+  const deckCanvasRef = useRef<HTMLCanvasElement>(null)
   const viewerRef = useRef<any>(null)
   const cesiumRef = useRef<any>(null)
+  const deckRef = useRef<any>(null)
+  const animTimeRef = useRef(0)
   const [activePoi, setActivePoi] = useState('arrowhead')
   const [cesiumReady, setCesiumReady] = useState(false)
 
+  const { trafficSegments, layers } = useStore()
+  const trafficRef = useRef(trafficSegments)
+  const layersRef = useRef(layers)
+
   useEffect(() => {
-    if (!containerRef.current || viewerRef.current) return
+    trafficRef.current = trafficSegments
+    layersRef.current = layers
+  }, [trafficSegments, layers])
+
+  useEffect(() => {
+    if (!containerRef.current || !deckCanvasRef.current || viewerRef.current) return
 
     async function initCesium() {
       const Cesium = await import('cesium')
@@ -68,20 +83,14 @@ export default function CesiumView() {
         requestRenderMode: false,
       })
 
-      // Clock
       viewer.clock.shouldAnimate = true
       viewer.clock.canAnimate = true
       viewer.useDefaultRenderLoop = true
       viewer.targetFrameRate = 60
-
-      // Performance — disable heavy GPU features
       viewer.scene.shadowMap.enabled = false
       viewer.scene.fog.enabled = false
       if (viewer.scene.skyAtmosphere) viewer.scene.skyAtmosphere.show = false
       viewer.scene.globe.show = true
-
-      // Debug FPS
-      viewer.scene.debugShowFramesPerSecond = true
 
       viewer.imageryLayers.removeAll()
       viewer.scene.primitives.add(tileset)
@@ -96,6 +105,53 @@ export default function CesiumView() {
         },
       })
 
+      const deck = new Deck({
+        canvas: deckCanvasRef.current!,
+        width: '100%',
+        height: '100%',
+        initialViewState: {
+          longitude: -94.4846,
+          latitude: 39.0489,
+          zoom: 12,
+          pitch: 45,
+          bearing: 0,
+        },
+        controller: false,
+        layers: [],
+      })
+
+      deckRef.current = deck
+
+      viewer.scene.postRender.addEventListener(() => {
+        const camera = viewer.camera
+        const carto = Cesium.Cartographic.fromCartesian(camera.position)
+        const lon = Cesium.Math.toDegrees(carto.longitude)
+        const lat = Cesium.Math.toDegrees(carto.latitude)
+        const alt = carto.height
+        const zoom = Math.log2(156543.03392 / alt) + 8
+        const heading = Cesium.Math.toDegrees(camera.heading)
+        const pitch = Cesium.Math.toDegrees(camera.pitch) + 90
+
+        animTimeRef.current = (Date.now() / 1000) % 100
+
+        console.log('[deck sync] segments:', trafficRef.current.length, 'zoom:', zoom.toFixed(1))
+
+        if (deckRef.current) {
+          deckRef.current.setProps({
+            viewState: {
+              longitude: lon,
+              latitude: lat,
+              zoom: Math.max(1, Math.min(zoom, 20)),
+              bearing: heading,
+              pitch: Math.max(0, Math.min(pitch, 85)),
+            },
+            layers: layersRef.current.trafficFlow && trafficRef.current.length > 0
+              ? buildTrafficFlowLayer(trafficRef.current, animTimeRef.current)
+              : [],
+          })
+        }
+      })
+
       viewerRef.current = viewer
       setCesiumReady(true)
       console.log('[Cesium] Google Photorealistic 3D Tiles loaded!')
@@ -104,6 +160,10 @@ export default function CesiumView() {
     initCesium().catch(console.error)
 
     return () => {
+      if (deckRef.current) {
+        deckRef.current.finalize()
+        deckRef.current = null
+      }
       if (viewerRef.current && !viewerRef.current.isDestroyed()) {
         viewerRef.current.destroy()
         viewerRef.current = null
@@ -119,6 +179,14 @@ export default function CesiumView() {
     viewer.camera.cancelFlight()
     viewer.clock.shouldAnimate = true
 
+    let isFlying = true
+    const forceUpdate = () => {
+      if (!isFlying) return
+      viewer.scene.requestRender()
+      requestAnimationFrame(forceUpdate)
+    }
+    requestAnimationFrame(forceUpdate)
+
     viewer.camera.flyTo({
       destination: Cesium.Cartesian3.fromDegrees(poi.lon, poi.lat, poi.altitude),
       orientation: {
@@ -130,16 +198,33 @@ export default function CesiumView() {
       easingFunction: Cesium.EasingFunction.QUADRATIC_IN_OUT,
       changed: () => { viewer.scene.requestRender() },
       complete: () => {
+        isFlying = false
         setActivePoi(poi.id)
         console.log('[flyTo] arrived at:', poi.label)
       },
-      cancel: () => console.warn('[flyTo] flight was interrupted'),
+      cancel: () => {
+        isFlying = false
+        console.warn('[flyTo] flight was interrupted')
+      },
     })
   }
 
   return (
     <div style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}>
+
       <div ref={containerRef} style={{ position: 'absolute', inset: 0, zIndex: 0 }} />
+
+      <canvas
+        ref={deckCanvasRef}
+        style={{
+          position: 'absolute',
+          inset: 0,
+          width: '100%',
+          height: '100%',
+          zIndex: 1,
+          pointerEvents: 'none',
+        }}
+      />
 
       {cesiumReady && (
         <div style={{
