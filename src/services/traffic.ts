@@ -3,10 +3,10 @@ import type { TrafficSegment } from '../types'
 export type { TrafficSegment }
 
 const KC_BBOX = {
-  north: 39.35,
-  south: 38.85,
-  east: -94.20,
-  west: -94.85,
+  north: 39.20,
+  south: 38.95,
+  east: -94.35,
+  west: -94.70,
 }
 
 const BASE_URL = 'https://data.traffic.hereapi.com/v7'

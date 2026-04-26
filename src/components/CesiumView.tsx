@@ -1,7 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Deck } from '@deck.gl/core'
 import { useStore } from '../store'
-import { buildTrafficFlowLayer } from '../layers/traffic'
 
 interface POI {
   id: string
@@ -15,18 +13,18 @@ interface POI {
 }
 
 const KC_POIS: POI[] = [
-  { id: 'arrowhead', label: 'Arrowhead', emoji: '🏟', lat: 39.0489, lon: -94.4846, altitude: 600, pitch: -40, category: 'venue' },
-  { id: 'sporting', label: 'CPKC Stadium', emoji: '⚽', lat: 39.1211, lon: -94.5916, altitude: 500, pitch: -40, category: 'venue' },
-  { id: 'current', label: 'KC Current', emoji: '🏟', lat: 39.1003, lon: -94.6278, altitude: 500, pitch: -40, category: 'venue' },
-  { id: 'argentina', label: '🇦🇷 Argentina', emoji: '⚽', lat: 39.1150, lon: -94.7200, altitude: 400, pitch: -45, category: 'camp' },
-  { id: 'england', label: '🏴󠁧󠁢󠁥󠁮󠁧󠁿 England', emoji: '⚽', lat: 38.9700, lon: -94.5100, altitude: 400, pitch: -45, category: 'camp' },
+  { id: 'arrowhead',   label: 'Arrowhead',      emoji: '🏟', lat: 39.0489, lon: -94.4846, altitude: 600, pitch: -40, category: 'venue' },
+  { id: 'sporting',    label: 'CPKC Stadium',    emoji: '⚽', lat: 39.1211, lon: -94.5916, altitude: 500, pitch: -40, category: 'venue' },
+  { id: 'current',     label: 'KC Current',      emoji: '🏟', lat: 39.1003, lon: -94.6278, altitude: 500, pitch: -40, category: 'venue' },
+  { id: 'argentina',   label: '🇦🇷 Argentina',   emoji: '⚽', lat: 39.1150, lon: -94.7200, altitude: 400, pitch: -45, category: 'camp' },
+  { id: 'england',     label: '🏴󠁧󠁢󠁥󠁮󠁧󠁿 England',     emoji: '⚽', lat: 38.9700, lon: -94.5100, altitude: 400, pitch: -45, category: 'camp' },
   { id: 'netherlands', label: '🇳🇱 Netherlands', emoji: '⚽', lat: 39.1650, lon: -94.6350, altitude: 400, pitch: -45, category: 'camp' },
-  { id: 'algeria', label: '🇩🇿 Algeria', emoji: '⚽', lat: 38.9717, lon: -95.2353, altitude: 400, pitch: -45, category: 'camp' },
-  { id: 'mci', label: 'MCI Airport', emoji: '✈', lat: 39.2976, lon: -94.7131, altitude: 800, pitch: -35, category: 'transport' },
-  { id: 'wheeler', label: 'Wheeler', emoji: '✈', lat: 39.1203, lon: -94.5927, altitude: 400, pitch: -40, category: 'transport' },
-  { id: 'powerlight', label: 'Power & Light', emoji: '🎉', lat: 39.0971, lon: -94.5822, altitude: 400, pitch: -45, category: 'fanzone' },
-  { id: 'union', label: 'Union Station', emoji: '🚂', lat: 39.0836, lon: -94.5873, altitude: 400, pitch: -45, category: 'fanzone' },
-  { id: 'plaza', label: 'Plaza', emoji: '🛍', lat: 39.0392, lon: -94.5958, altitude: 400, pitch: -45, category: 'fanzone' },
+  { id: 'algeria',     label: '🇩🇿 Algeria',     emoji: '⚽', lat: 38.9717, lon: -95.2353, altitude: 400, pitch: -45, category: 'camp' },
+  { id: 'mci',         label: 'MCI Airport',     emoji: '✈', lat: 39.2976, lon: -94.7131, altitude: 800, pitch: -35, category: 'transport' },
+  { id: 'wheeler',     label: 'Wheeler',         emoji: '✈', lat: 39.1203, lon: -94.5927, altitude: 400, pitch: -40, category: 'transport' },
+  { id: 'powerlight',  label: 'Power & Light',   emoji: '🎉', lat: 39.0971, lon: -94.5822, altitude: 400, pitch: -45, category: 'fanzone' },
+  { id: 'union',       label: 'Union Station',   emoji: '🚂', lat: 39.0836, lon: -94.5873, altitude: 400, pitch: -45, category: 'fanzone' },
+  { id: 'plaza',       label: 'Plaza',           emoji: '🛍', lat: 39.0392, lon: -94.5958, altitude: 400, pitch: -45, category: 'fanzone' },
 ]
 
 const CATEGORY_COLORS: Record<POI['category'], string> = {
@@ -36,13 +34,24 @@ const CATEGORY_COLORS: Record<POI['category'], string> = {
   fanzone:   '#ff44aa',
 }
 
+// Convert jam factor to Cesium Color
+function jamFactorToCesiumColor(Cesium: any, jamFactor: number, alpha = 1.0) {
+  if (jamFactor <= 1) return new Cesium.Color(0.0, 1.0, 0.47, alpha)   // bright green
+  if (jamFactor <= 3) return new Cesium.Color(0.47, 1.0, 0.0, alpha)   // yellow-green
+  if (jamFactor <= 5) return new Cesium.Color(1.0, 0.86, 0.0, alpha)   // amber
+  if (jamFactor <= 7) return new Cesium.Color(1.0, 0.47, 0.0, alpha)   // orange
+  if (jamFactor <= 9) return new Cesium.Color(1.0, 0.16, 0.0, alpha)   // red
+  return new Cesium.Color(0.78, 0.0, 0.31, alpha)                       // deep red
+}
+
 export default function CesiumView() {
   const containerRef = useRef<HTMLDivElement>(null)
-  const deckCanvasRef = useRef<HTMLCanvasElement>(null)
   const viewerRef = useRef<any>(null)
   const cesiumRef = useRef<any>(null)
-  const deckRef = useRef<any>(null)
-  const animTimeRef = useRef(0)
+  const trafficCollectionRef = useRef<any>(null)
+  const glowCollectionRef = useRef<any>(null)
+  const animFrameRef = useRef<number>(0)
+
   const [activePoi, setActivePoi] = useState('arrowhead')
   const [cesiumReady, setCesiumReady] = useState(false)
 
@@ -50,13 +59,92 @@ export default function CesiumView() {
   const trafficRef = useRef(trafficSegments)
   const layersRef = useRef(layers)
 
+  // Keep refs in sync with store
   useEffect(() => {
     trafficRef.current = trafficSegments
     layersRef.current = layers
   }, [trafficSegments, layers])
 
+  // Rebuild traffic lines when data changes
   useEffect(() => {
-    if (!containerRef.current || !deckCanvasRef.current || viewerRef.current) return
+    if (!viewerRef.current || !cesiumRef.current || !trafficCollectionRef.current) return
+    if (!layers.trafficFlow || trafficSegments.length === 0) {
+      trafficCollectionRef.current.removeAll()
+      glowCollectionRef.current?.removeAll()
+      return
+    }
+    buildTrafficLines(cesiumRef.current, trafficSegments)
+  }, [trafficSegments, layers.trafficFlow])
+
+  function buildTrafficLines(Cesium: any, segments: typeof trafficSegments) {
+    if (!trafficCollectionRef.current || !glowCollectionRef.current) return
+
+    trafficCollectionRef.current.removeAll()
+    glowCollectionRef.current.removeAll()
+const filtered = segments.filter(s => s.jamFactor >= 2 && s.points.length >= 2)
+    const limited = filtered.slice(0, 2000) // hard cap at 2000
+
+    console.log(`[Traffic] Rendering ${limited.length} of ${segments.length} segments`)
+
+    for (const segment of limited) {
+      if (segment.points.length < 2) continue
+
+      // Convert [lon, lat] pairs to flat degrees array for Cesium
+      const flatCoords = segment.points.flatMap(([lon, lat]) => [lon, lat])
+      const positions = Cesium.Cartesian3.fromDegreesArrayHeights(
+        segment.points.flatMap(([lon, lat]) => [lon, lat, 320])
+      )
+
+      const coreColor = jamFactorToCesiumColor(Cesium, segment.jamFactor, 0.9)
+      const glowColor = jamFactorToCesiumColor(Cesium, segment.jamFactor, 0.25)
+
+      // Outer glow line (wide, transparent)
+      glowCollectionRef.current.add({
+        positions,
+        width: 8,
+        material: Cesium.Material.fromType('Color', { color: glowColor }),
+      })
+
+      // Core line (narrow, bright)
+      trafficCollectionRef.current.add({
+        positions,
+        width: 2.5,
+        material: Cesium.Material.fromType('PolylineGlow', {
+          glowPower: 0.3,
+          color: coreColor,
+        }),
+      })
+    }
+
+    
+  }
+
+  // Animate traffic pulse effect
+  function startPulseAnimation(Cesium: any) {
+    let t = 0
+
+    const animate = () => {
+      t += 0.02
+      const pulse = 0.6 + 0.4 * Math.sin(t)
+
+      if (trafficCollectionRef.current && layersRef.current.trafficFlow) {
+        const count = trafficCollectionRef.current.length
+        for (let i = 0; i < count; i++) {
+          const line = trafficCollectionRef.current.get(i)
+          if (line?.material?.uniforms) {
+            line.material.uniforms.color.alpha = pulse * 0.9
+          }
+        }
+      }
+
+      animFrameRef.current = requestAnimationFrame(animate)
+    }
+
+    animFrameRef.current = requestAnimationFrame(animate)
+  }
+
+  useEffect(() => {
+    if (!containerRef.current || viewerRef.current) return
 
     async function initCesium() {
       const Cesium = await import('cesium')
@@ -96,6 +184,14 @@ export default function CesiumView() {
       viewer.scene.primitives.add(tileset)
       viewer.creditDisplay.container.style.display = 'none'
 
+      // Add polyline collections for traffic
+      const glowCollection = new Cesium.PolylineCollection()
+      const trafficCollection = new Cesium.PolylineCollection()
+      viewer.scene.primitives.add(glowCollection)
+      viewer.scene.primitives.add(trafficCollection)
+      glowCollectionRef.current = glowCollection
+      trafficCollectionRef.current = trafficCollection
+
       viewer.camera.setView({
         destination: Cesium.Cartesian3.fromDegrees(-94.4846, 39.0489, 600),
         orientation: {
@@ -105,52 +201,13 @@ export default function CesiumView() {
         },
       })
 
-      const deck = new Deck({
-        canvas: deckCanvasRef.current!,
-        width: '100%',
-        height: '100%',
-        initialViewState: {
-          longitude: -94.4846,
-          latitude: 39.0489,
-          zoom: 12,
-          pitch: 45,
-          bearing: 0,
-        },
-        controller: false,
-        layers: [],
-      })
+      // Build initial traffic lines if data already loaded
+      if (trafficRef.current.length > 0 && layersRef.current.trafficFlow) {
+        buildTrafficLines(Cesium, trafficRef.current)
+      }
 
-      deckRef.current = deck
-
-      viewer.scene.postRender.addEventListener(() => {
-        const camera = viewer.camera
-        const carto = Cesium.Cartographic.fromCartesian(camera.position)
-        const lon = Cesium.Math.toDegrees(carto.longitude)
-        const lat = Cesium.Math.toDegrees(carto.latitude)
-        const alt = carto.height
-        const zoom = Math.log2(156543.03392 / alt) + 8
-        const heading = Cesium.Math.toDegrees(camera.heading)
-        const pitch = Cesium.Math.toDegrees(camera.pitch) + 90
-
-        animTimeRef.current = (Date.now() / 1000) % 100
-
-        console.log('[deck sync] segments:', trafficRef.current.length, 'zoom:', zoom.toFixed(1))
-
-        if (deckRef.current) {
-          deckRef.current.setProps({
-            viewState: {
-              longitude: lon,
-              latitude: lat,
-              zoom: Math.max(1, Math.min(zoom, 20)),
-              bearing: heading,
-              pitch: Math.max(0, Math.min(pitch, 85)),
-            },
-            layers: layersRef.current.trafficFlow && trafficRef.current.length > 0
-              ? buildTrafficFlowLayer(trafficRef.current, animTimeRef.current)
-              : [],
-          })
-        }
-      })
+      // Start pulse animation
+      startPulseAnimation(Cesium)
 
       viewerRef.current = viewer
       setCesiumReady(true)
@@ -160,10 +217,7 @@ export default function CesiumView() {
     initCesium().catch(console.error)
 
     return () => {
-      if (deckRef.current) {
-        deckRef.current.finalize()
-        deckRef.current = null
-      }
+      cancelAnimationFrame(animFrameRef.current)
       if (viewerRef.current && !viewerRef.current.isDestroyed()) {
         viewerRef.current.destroy()
         viewerRef.current = null
@@ -212,19 +266,7 @@ export default function CesiumView() {
   return (
     <div style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}>
 
-      <div ref={containerRef} style={{ position: 'absolute', inset: 0, zIndex: 0 }} />
-
-      <canvas
-        ref={deckCanvasRef}
-        style={{
-          position: 'absolute',
-          inset: 0,
-          width: '100%',
-          height: '100%',
-          zIndex: 1,
-          pointerEvents: 'none',
-        }}
-      />
+      <div ref={containerRef} style={{ position: 'absolute', inset: 0 }} />
 
       {cesiumReady && (
         <div style={{
